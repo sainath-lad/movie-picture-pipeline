@@ -4,7 +4,6 @@ ARG REACT_APP_MOVIE_API_URL
 ENV REACT_APP_MOVIE_API_URL=${REACT_APP_MOVIE_API_URL}
 
 WORKDIR /app
-
 # Copy dependdency files
 COPY package*.json ./
 
@@ -21,4 +20,4 @@ RUN npm run build
 EXPOSE 3000
 
 # Start the React app when the container starts
-CMD ["npm", "run", "serve"]
+CMD ["npm", "run", "serve", "--", "-l", "3000"]
