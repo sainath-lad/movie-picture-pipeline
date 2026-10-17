@@ -40,14 +40,13 @@ jobs:
         working-directory: starter/frontend
         run: CI=true npm test -- --watchAll=false
 
-      - name: Build and push frontend image
-        env:
-          REGISTRY: ${{ steps.ecr.outputs.registry }}
-          MOVIE_API_URL: http://a159050680d0047bfb52651cdf2f097d-1730096371.us-east-1.elb.amazonaws.com
-        run: |
-          docker build --build-arg REACT_APP_MOVIE_API_URL=$MOVIE_API_URL -t $REGISTRY/frontend:${{ github.sha }} -t $REGISTRY/frontend:latest starter/frontend
-          docker push $REGISTRY/frontend:${{ github.sha }}
-          docker push $REGISTRY/frontend:latest
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
 
       - name: Log in to Amazon ECR
         id: ecr
@@ -56,8 +55,9 @@ jobs:
       - name: Build and push frontend image
         env:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
+          MOVIE_API_URL: http://a159050680d0047bfb52651cdf2f097d-1730096371.us-east-1.elb.amazonaws.com
         run: |
-          docker build -t $REGISTRY/frontend:${{ github.sha }} -t $REGISTRY/frontend:latest starter/frontend
+          docker build --build-arg REACT_APP_MOVIE_API_URL=$MOVIE_API_URL -t $REGISTRY/frontend:${{ github.sha }} -t $REGISTRY/frontend:latest starter/frontend
           docker push $REGISTRY/frontend:${{ github.sha }}
           docker push $REGISTRY/frontend:latest
 
