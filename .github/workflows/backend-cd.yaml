@@ -1,0 +1,66 @@
+name: Backend Continuous Deployment
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'starter/backend/**'
+      - '.github/workflows/backend-cd.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Build and Deploy Backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Pipenv
+        run: pip install pipenv
+
+      - name: Install backend dependencies
+        working-directory: starter/backend
+        run: pipenv install --dev
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
+
+      - name: Log in to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push backend image
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          docker build -t $REGISTRY/backend:${{ github.sha }} -t $REGISTRY/backend:latest starter/backend
+          docker push $REGISTRY/backend:${{ github.sha }}
+          docker push $REGISTRY/backend:latest
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name cluster --region us-east-1
+
+      - name: Deploy backend
+        run: |
+          kubectl apply -k starter/backend/k8s
+          kubectl set image deployment/backend backend=647038750271.dkr.ecr.us-east-1.amazonaws.com/backend:${{ github.sha }}
+          kubectl rollout status deployment/backend --timeout=180s
+
+      - name: Get backend service
+        run: kubectl get service backend
